@@ -219,11 +219,11 @@ class ClipboardMonitor:
 	def StartMonitor(self):
 		self.__mhf = WINFUNCTYPE(c_int, c_int, c_int, c_int, c_int)(self.MsgHandleFunc)
 		u32.AddClipboardFormatListener(self.handle)
-		self.__pre_handle = windll.user32.SetWindowLongA(self.handle, -4, self.__mhf)
+		self.__pre_handle = windll.user32.SetWindowLongPtrA(self.handle, -4, self.__mhf)
 
 	def Stop(self):
 		u32.RemoveClipboardFormatListener(self.handle)
-		self.__pre_handle = windll.user32.SetWindowLongA(self.handle, -4, 0)
+		self.__pre_handle = windll.user32.SetWindowLongPtrA(self.handle, -4, 0)
 		self.__mhf = None
 
 	def get_clipboard_data(self):
