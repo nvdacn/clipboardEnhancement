@@ -6,7 +6,6 @@ import gui
 import globalVars
 import textInfos
 import speech
-import versionInfo
 from logHandler import log
 from buildVersion import version_year
 from core import callLater
