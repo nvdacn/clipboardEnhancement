@@ -8,6 +8,7 @@ import textInfos
 import speech
 import versionInfo
 from logHandler import log
+from buildVersion import version_year
 from core import callLater
 from keyboardHandler import KeyboardInputGesture
 from . import calendar
@@ -20,9 +21,8 @@ import json
 import wx
 
 
-from versionInfo import version_year
 speechModule = speech.speech if version_year >= 2021 else speech
-speakOnDemand = {"speakOnDemand": True} if versionInfo.version_year >= 2024 else {}
+speakOnDemand = {"speakOnDemand": True} if version_year >= 2024 else {}
 
 # 剪贴板记录数据文件
 CLIPBOARD_HISTORY_FILENAME = \
