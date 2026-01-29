@@ -6,11 +6,19 @@ from logHandler import log
 
 from . import reReplace, utility
 
+# 获取翻译函数，如果不可用则使用默认函数
+try:
+	_
+except NameError:
+	def _(arg):
+		return arg
+
 
 class MyFrame(wx.Frame):
 	def __init__(self, *args, **kw):
 		wx.Frame.__init__(self, size=(600, 460), *args, **kw)
 		self.is_exit = False
+		self.original_content = ""  # 记录打开时的原始内容
 		pnl = wx.Panel(self)
 		self.edit = wx.TextCtrl(
 			pnl, pos=(0, 0), style=wx.TE_PROCESS_TAB | wx.TE_MULTILINE | wx.TE_RICH2 | wx.HSCROLL)
@@ -57,7 +65,8 @@ class MyFrame(wx.Frame):
 	def on_key_down(self, evt):
 		code = evt.GetKeyCode()
 		if code == wx.WXK_ESCAPE:
-			self.Show(False)
+			# 调用 on_exit 来检查是否需要保存
+			self.on_exit(evt)
 			position = self.edit.GetInsertionPoint()
 			XY = self.edit.PositionToXY(position)
 			if XY[0]:
@@ -248,7 +257,30 @@ class MyFrame(wx.Frame):
 		self.Show(False)
 
 	def on_exit(self, event):
-		self.Show(False)
+		current_content = self.edit.GetValue()
+		# 检查内容是否有变化
+		if current_content != self.original_content:
+			# 弹出对话框询问用户是否保存
+			dlg = wx.MessageDialog(
+				self,
+				_("文档已更改，是否保存？"),
+				_("保存确认"),
+				wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION
+			)
+			result = dlg.ShowModal()
+			dlg.Destroy()
+			
+			if result == wx.ID_YES:
+				# 用户选择保存，更新剪贴板
+				self.on_update(None)
+				self.Show(False)
+			elif result == wx.ID_NO:
+				# 用户选择不保存，直接退出
+				self.Show(False)
+			# 如果是 wx.ID_CANCEL，什么都不做，保持窗口打开
+		else:
+			# 内容没有变化，直接退出
+			self.Show(False)
 
 	def on_saveImageFromClip(self, evt):
 		from .PIL import Image, ImageGrab
@@ -308,4 +340,6 @@ class MyFrame(wx.Frame):
 	def on_show(self, event):
 		if event.IsShown():
 			self.RefreshUIForImage(self.isImageInClipboard())
+			# 记录打开时的原始内容
+			self.original_content = self.edit.GetValue()
 		event.Skip()
