@@ -127,6 +127,20 @@ CloseClipboard.restype = w.BOOL
 DragQueryFile = s32.DragQueryFile
 DragQueryFile.argtypes = [w.HANDLE, w.UINT, c_void_p, w.UINT]
 
+# 64-bit support for window subclassing
+try:
+	SetWindowLongPtr = u32.SetWindowLongPtrA
+	SetWindowLongPtr.argtypes = [w.HWND, c_int, c_void_p]
+	SetWindowLongPtr.restype = w.LPARAM
+except AttributeError:
+	SetWindowLongPtr = u32.SetWindowLongA
+	SetWindowLongPtr.argtypes = [w.HWND, c_int, c_void_p]
+	SetWindowLongPtr.restype = w.LONG
+
+CallWindowProc = u32.CallWindowProcA
+CallWindowProc.argtypes = [w.LPARAM, w.HWND, w.UINT, w.WPARAM, w.LPARAM]
+CallWindowProc.restype = w.LPARAM
+
 # Alternative style (displayed with most PCs): MB, KB, GB, YB, ZB, ...
 alternative = [
 	(1024.0**8.0, ' YB'),
@@ -214,16 +228,16 @@ class ClipboardMonitor:
 			Thread(target=ClipboardMonitor.workReset, args=(self,)).start()
 			Thread(target=ClipboardMonitor.get_clipboard_data, args=(self,)).start()
 			cues.Copy()
-		return windll.user32.CallWindowProcA(self.__pre_handle, hwnd, msg, wParam, lParam)
+		return CallWindowProc(self.__pre_handle, hwnd, msg, wParam, lParam)
 
 	def StartMonitor(self):
-		self.__mhf = WINFUNCTYPE(c_int, c_int, c_int, c_int, c_int)(self.MsgHandleFunc)
+		self.__mhf = WINFUNCTYPE(w.LPARAM, w.HWND, w.UINT, w.WPARAM, w.LPARAM)(self.MsgHandleFunc)
 		u32.AddClipboardFormatListener(self.handle)
-		self.__pre_handle = windll.user32.SetWindowLongPtrA(self.handle, -4, self.__mhf)
+		self.__pre_handle = SetWindowLongPtr(self.handle, -4, self.__mhf)
 
 	def Stop(self):
 		u32.RemoveClipboardFormatListener(self.handle)
-		self.__pre_handle = windll.user32.SetWindowLongPtrA(self.handle, -4, 0)
+		self.__pre_handle = SetWindowLongPtr(self.handle, -4, 0)
 		self.__mhf = None
 
 	def get_clipboard_data(self):
