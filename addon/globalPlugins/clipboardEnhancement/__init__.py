@@ -10,6 +10,7 @@ from logHandler import log
 from buildVersion import version_year
 from core import callLater
 from keyboardHandler import KeyboardInputGesture
+from . import bitmap
 from . import calendar
 from . import utility
 from . import cues
@@ -833,29 +834,15 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if hasattr(self, 'isFileDialogOpen') and self.isFileDialogOpen:
 			return
 		self.isFileDialogOpen = True
+
 		def saveClipboardImageToFile():
 			if not isinstance(self.data, bytes):
 				ui.message("不是图片数据")
 				self.isFileDialogOpen = False
 				return
-			from .PIL import Image, ImageGrab
-			fd = None
 			try:
-				image = ImageGrab.grabclipboard()
-				if not isinstance(image, Image.Image):
-					return
-				fd = wx.FileDialog(gui.mainFrame,
-					_("选择图片保存位置"),
-					wildcard=_("图片文件 (*.png)|*.png"), style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
-				if fd.ShowModal() == wx.ID_OK:
-					path = fd.GetPath()
-					if not path.upper().endswith(".PNG"):
-						path += ".png"
-					image.save(path, format="png")
-			except Exception as e:
-				wx.MessageBox(str(e), _("错误"), wx.OK | wx.ICON_ERROR)
+				bitmap.saveClipImage(gui.mainFrame)
 			finally:
-				if fd:
-					fd.Destroy()
 				self.isFileDialogOpen = False
+
 		wx.CallAfter(saveClipboardImageToFile)
