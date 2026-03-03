@@ -11,7 +11,6 @@ from buildVersion import version_year
 from core import callLater
 from keyboardHandler import KeyboardInputGesture
 from . import bitmap
-from . import calendar
 from . import utility
 from . import cues
 from .clipEditor import MyFrame
@@ -563,26 +562,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				ui.message("未找到可供打开的 URL或文件路径")
 		except FileNotFoundError as e:
 			ui.message(str(e))
-
-	@scriptHandler.script(
-		description=_("读出时间（连按两次读出日期）"),
-		gesture="kb:NVDA+f12",
-		**speakOnDemand)
-	def script_speakDateTime(self, gesture):
-		if scriptHandler.getLastScriptRepeatCount() > 0:
-			ui.message(calendar.getDate() + '。\n' + calendar.get_constellation())
-		else:
-			ui.message(calendar.getTime())
-
-	@scriptHandler.script(
-		description=_("读出农历日期（连按两次读出本月节气）"),
-		gesture="kb:NVDA+f11",
-		**speakOnDemand)
-	def script_speakLunarDate(self, gesture):
-		if scriptHandler.getLastScriptRepeatCount() > 0:
-			ui.message(calendar.getJieQi())
-		else:
-			ui.message(calendar.getLunarDate())
 
 	@scriptHandler.script(
 		description=_("编辑文档标记开始点"),
