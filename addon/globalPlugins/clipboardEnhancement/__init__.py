@@ -6,11 +6,11 @@ import gui
 import globalVars
 import textInfos
 import speech
-import versionInfo
 from logHandler import log
+from buildVersion import version_year
 from core import callLater
 from keyboardHandler import KeyboardInputGesture
-from . import calendar
+from . import bitmap
 from . import utility
 from . import cues
 from .clipEditor import MyFrame
@@ -20,9 +20,8 @@ import json
 import wx
 
 
-from versionInfo import version_year
 speechModule = speech.speech if version_year >= 2021 else speech
-speakOnDemand = {"speakOnDemand": True} if versionInfo.version_year >= 2024 else {}
+speakOnDemand = {"speakOnDemand": True} if version_year >= 2024 else {}
 
 # 剪贴板记录数据文件
 CLIPBOARD_HISTORY_FILENAME = \
@@ -565,26 +564,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			ui.message(str(e))
 
 	@scriptHandler.script(
-		description=_("读出时间（连按两次读出日期）"),
-		gesture="kb:NVDA+f12",
-		**speakOnDemand)
-	def script_speakDateTime(self, gesture):
-		if scriptHandler.getLastScriptRepeatCount() > 0:
-			ui.message(calendar.getDate() + '。\n' + calendar.get_constellation())
-		else:
-			ui.message(calendar.getTime())
-
-	@scriptHandler.script(
-		description=_("读出农历日期（连按两次读出本月节气）"),
-		gesture="kb:NVDA+f11",
-		**speakOnDemand)
-	def script_speakLunarDate(self, gesture):
-		if scriptHandler.getLastScriptRepeatCount() > 0:
-			ui.message(calendar.getJieQi())
-		else:
-			ui.message(calendar.getLunarDate())
-
-	@scriptHandler.script(
 		description=_("编辑文档标记开始点"),
 		gestures=["kb:windows+Numpad4", "kb(laptop):NVDA+alt+["],
 		**speakOnDemand)
@@ -834,29 +813,15 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if hasattr(self, 'isFileDialogOpen') and self.isFileDialogOpen:
 			return
 		self.isFileDialogOpen = True
+
 		def saveClipboardImageToFile():
 			if not isinstance(self.data, bytes):
 				ui.message("不是图片数据")
 				self.isFileDialogOpen = False
 				return
-			from .PIL import Image, ImageGrab
-			fd = None
 			try:
-				image = ImageGrab.grabclipboard()
-				if not isinstance(image, Image.Image):
-					return
-				fd = wx.FileDialog(gui.mainFrame,
-					_("选择图片保存位置"),
-					wildcard=_("图片文件 (*.png)|*.png"), style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
-				if fd.ShowModal() == wx.ID_OK:
-					path = fd.GetPath()
-					if not path.upper().endswith(".PNG"):
-						path += ".png"
-					image.save(path, format="png")
-			except Exception as e:
-				wx.MessageBox(str(e), _("错误"), wx.OK | wx.ICON_ERROR)
+				bitmap.saveClipImage(gui.mainFrame)
 			finally:
-				if fd:
-					fd.Destroy()
 				self.isFileDialogOpen = False
+
 		wx.CallAfter(saveClipboardImageToFile)

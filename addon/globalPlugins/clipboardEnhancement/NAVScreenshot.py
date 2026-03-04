@@ -39,7 +39,11 @@ def navigatorObjectScreenshot():
 
 
 def isScreenCurtainRunning():
-	from visionEnhancementProviders.screenCurtain import ScreenCurtainProvider
-	screenCurtainId = ScreenCurtainProvider.getSettings().getId()
-	screenCurtainProviderInfo = vision.handler.getProviderInfo(screenCurtainId)
-	return bool(vision.handler.getProviderInstance(screenCurtainProviderInfo))
+	try:
+		import screenCurtain
+		return screenCurtain.screenCurtain and screenCurtain.screenCurtain.enabled
+	except ModuleNotFoundError:
+		from visionEnhancementProviders.screenCurtain import ScreenCurtainProvider
+		screenCurtainId = ScreenCurtainProvider.getSettings().getId()
+		screenCurtainProviderInfo = vision.handler.getProviderInfo(screenCurtainId)
+		return bool(vision.handler.getProviderInstance(screenCurtainProviderInfo))

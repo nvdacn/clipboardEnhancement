@@ -5,6 +5,7 @@ from ctypes import c_buffer, POINTER, byref, cast, Structure, sizeof, windll, wi
 import winGDI
 import winKernel
 import winUser
+import wx
 from contentRecog import RecogImageInfo
 from logHandler import log
 
@@ -164,3 +165,34 @@ def getClipImage():
     # 打开内存图像文件
     with openMemoryImageFile(imgInfo, pixels) as f:
         return imgInfo, f.getvalue()
+
+
+def isImageInClipboard() -> bool:
+    return wx.TheClipboard.IsSupported(wx.DataFormat(wx.DF_BITMAP))
+
+
+def saveClipImage(parent: wx.Window):
+    fd = None
+    bitmap_data = wx.BitmapDataObject()
+    try:
+        if not isImageInClipboard():
+            return
+        wx.TheClipboard.Open()
+        if wx.TheClipboard.GetData(bitmap_data):
+            RuntimeError(_("剪贴板图片获取失败"))
+        wx.TheClipboard.Close()
+        fd = wx.FileDialog(parent,
+            _("选择图片保存位置"),
+            wildcard=_("图片文件 (*.png)|*.png"), style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
+        if fd.ShowModal() == wx.ID_OK:
+            path = fd.GetPath()
+            if not path.upper().endswith(".PNG"):
+                path += ".png"
+            bitmap_data.Bitmap.SaveFile(path, wx.BITMAP_TYPE_PNG)
+    except Exception as e:
+        wx.MessageBox(str(e), _("错误"), wx.OK | wx.ICON_ERROR)
+    finally:
+        if wx.TheClipboard.IsOpened():
+            wx.TheClipboard.Close()
+        if fd:
+            fd.Destroy()
