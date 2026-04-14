@@ -4,7 +4,7 @@ import api
 import wx
 from logHandler import log
 
-from . import reReplace, utility
+from . import reReplace, utility, bitmap
 
 
 class MyFrame(wx.Frame):
@@ -251,25 +251,7 @@ class MyFrame(wx.Frame):
 		self.Show(False)
 
 	def on_saveImageFromClip(self, evt):
-		from .PIL import Image, ImageGrab
-		fd = None
-		try:
-			image = ImageGrab.grabclipboard()
-			if not isinstance(image, Image.Image):
-				return
-			fd = wx.FileDialog(self,
-				_("选择图片保存位置"),
-				wildcard=_("图片文件 (*.png)|*.png"), style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
-			if fd.ShowModal() == wx.ID_OK:
-				path = fd.GetPath()
-				if not path.upper().endswith(".PNG"):
-					path += ".png"
-				image.save(path, format="png")
-		except Exception as e:
-			wx.MessageBox(str(e), _("错误"), wx.OK | wx.ICON_ERROR)
-		finally:
-			if fd:
-				fd.Destroy()
+		bitmap.saveClipImage(self)
 
 	def on_size(self, event):
 		self.edit.SetSize(self.GetClientSize())
@@ -279,14 +261,6 @@ class MyFrame(wx.Frame):
 		import winUser
 		with winUser.openClipboard():
 			winUser.emptyClipboard()
-
-	def isImageInClipboard(self):
-		clipboard = wx.Clipboard.Get()
-		clipboard.Open()
-		try:
-			return clipboard.IsSupported(wx.DataFormat(wx.DF_BITMAP))
-		finally:
-			clipboard.Close()
 
 	def RefreshUIForImage(self, isContainImage=False):
 		if isContainImage:
@@ -298,14 +272,14 @@ class MyFrame(wx.Frame):
 			self.Title = "剪贴板编辑器"
 
 	def OnSetFocus(self, event):
-		self.RefreshUIForImage(self.isImageInClipboard())
+		self.RefreshUIForImage(bitmap.isImageInClipboard())
 
 	def OnMenuOpen(self, event):
 		# Use the SET FOCUS event instead
 		pass
-		# self.RefreshUIForImage(self.isImageInClipboard())
+		# self.RefreshUIForImage(bitmap.isImageInClipboard())
 
 	def on_show(self, event):
 		if event.IsShown():
-			self.RefreshUIForImage(self.isImageInClipboard())
+			self.RefreshUIForImage(bitmap.isImageInClipboard())
 		event.Skip()
