@@ -43,3 +43,11 @@ msgstr ""
 "Він спрямований на вдосконалення досвіду користувачів, забезпечуючи "
 "більший контроль та гнучкість щодо вмісту буфера обміну та промовленим "
 "NVDA текстом."
+
+#: addon/globalPlugins/clipboardEnhancement/clipEditor.py
+msgid "文档已更改，是否保存？"
+msgstr "Документ змінено. Зберегти?"
+
+#: addon/globalPlugins/clipboardEnhancement/clipEditor.py
+msgid "保存确认"
+msgstr "Підтвердження збереження"

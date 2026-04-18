@@ -40,3 +40,11 @@ msgstr ""
 "功能包括拷贝最后一次朗读的内容到剪贴板，将最后一次朗读的内容追加到剪贴板、"
 "将最后一次听到的内容粘贴到输入光标所在处、以及对剪贴板中的文本内容进行逐"
 "行、逐词查看。"
+
+#: addon/globalPlugins/clipboardEnhancement/clipEditor.py
+msgid "文档已更改，是否保存？"
+msgstr "文档已更改，是否保存？"
+
+#: addon/globalPlugins/clipboardEnhancement/clipEditor.py
+msgid "保存确认"
+msgstr "保存确认"
