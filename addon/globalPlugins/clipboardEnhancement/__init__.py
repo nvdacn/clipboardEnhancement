@@ -1,4 +1,5 @@
 import api
+import addonHandler
 import globalPluginHandler
 import scriptHandler
 import ui
@@ -24,6 +25,8 @@ from versionInfo import version_year
 speechModule = speech.speech if version_year >= 2021 else speech
 speakOnDemand = {"speakOnDemand": True} if versionInfo.version_year >= 2024 else {}
 
+addonHandler.initTranslation()
+
 # 剪贴板记录数据文件
 CLIPBOARD_HISTORY_FILENAME = \
 os.path.abspath(
@@ -38,7 +41,7 @@ def disableInSecureMode(decoratedCls):
 
 @disableInSecureMode
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
-	scriptCategory = "剪贴板增强"
+	scriptCategory = addonHandler.getCodeAddon().manifest['summary']
 	pt = pti = {}
 
 	def __init__(self):
@@ -51,7 +54,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.text = ""
 		self.files = []
 		self.info = ""
-		self.lines = ["无数据"]
+		self.lines = [_("无数据")]
 		self.line = self.char = self.word = -1
 		self.monitor = None
 		self.editor = None
@@ -64,7 +67,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		try:
 			self.clipboardDataPool = self._loadClipboardHistoryFromFile()
 		except Exception as e:
-			log.info(f"夹在剪贴板历史文件失败：{e}")
+			log.info(_("夹在剪贴板历史文件失败：{}").format(e))
 			self.clipboardDataPool = []
 		# 剪贴板记录光标
 		self.cursorClipboardHistory = 0
@@ -90,7 +93,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		return data
 
 	def clipboard(self):
-		self.editor = MyFrame(gui.mainFrame, title="剪贴板编辑器")
+		self.editor = MyFrame(gui.mainFrame, title=_("剪贴板编辑器"))
 		self.monitor = utility.ClipboardMonitor(self.editor.GetHandle())
 		self.monitor.customization = self.func
 		callLater(100, self.monitor.get_clipboard_data)
@@ -106,8 +109,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def func(self):
 		self.text = ""
 		self.files = None
-		self.info = "无数据"
-		self.lines = ["无数据"]
+		self.info = _("无数据")
+		self.lines = [_("无数据")]
 		self.word = self.line = self.char = -1
 		data = self.monitor.getData()
 		# 缓存剪贴板数据
@@ -150,7 +153,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		**speakOnDemand)
 	def script_briefClip(self, gesture):
 		if self.text:
-			self.info = f'第{self.line+1}行， 共{len(self.lines)}行， {len("".join(self.lines))}个字'
+			self.info = _('第{}行， 共{}行， {}个字').format(self.line + 1, len(self.lines), len("".join(self.lines)))
 		elif self.files is not None:
 			self.info = self.monitor.calc(self.files)
 		ui.message(self.info)
@@ -255,11 +258,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if repeatCount == 1:
 			api.copyToClip(self.spoken2)
 			self.flg = 0
-			ui.message("拷贝")
+			ui.message(_("拷贝"))
 		elif repeatCount == 0:
 			api.copyToClip(self.spoken)
 			self.flg = 0
-			ui.message("拷贝")
+			ui.message(_("拷贝"))
 
 	def _getClipText(self):
 		text = ""
@@ -286,13 +289,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			clip = end.join((self.text, self.spoken2))
 			api.copyToClip(clip)
 			self.flg = 0
-			ui.message("添加")
+			ui.message(_("添加"))
 		elif count == 0:
 			end = "\n" if not self.text.endswith("\n") and self.text else ""
 			clip = end.join((self.text, self.spoken))
 			api.copyToClip(clip)
 			self.flg = 0
-			ui.message("添加")
+			ui.message(_("添加"))
 
 	@scriptHandler.script(
 		description=_("打开剪贴板编辑器"),
@@ -300,7 +303,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		**speakOnDemand)
 	def script_clipEditor(self, gesture):
 		if self.editor is None:
-			self.editor = MyFrame(gui.mainFrame, title="剪贴板编辑器")
+			self.editor = MyFrame(gui.mainFrame, title=_("剪贴板编辑器"))
 		self.editor.edit.SetValue(self.text.replace('\r\n', '\n'))
 		point = self.editor.edit.XYToPosition(self.char if self.char >= 0 else 0,
 		                                      self.line if self.line >= 0 else 0)
@@ -412,7 +415,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			self.line = 0
 		text = self.lines[self.line]
 		if not text:
-			return ui.message("空白")
+			return ui.message(_("空白"))
 		if self.char < 0:
 			self.char = 0
 		self._charExplanation(text[self.char])
@@ -474,7 +477,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				self.word = utility.charPToWordP(p, self.char)
 				speechModule.speakSpelling(text[self.char])
 		else:
-				ui.message("空白")
+				ui.message(_("空白"))
 
 	def _switchWord(self, step=0):
 		# Ensure the line index is within bounds
@@ -560,7 +563,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def script_openURL(self, gesture):
 		try:
 			if not (utility.tryOpenURL(self.spoken) or utility.tryOpenURL(self.text)):
-				ui.message("未找到可供打开的 URL或文件路径")
+				ui.message(_("未找到可供打开的 URL或文件路径"))
 		except FileNotFoundError as e:
 			ui.message(str(e))
 
@@ -590,7 +593,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		**speakOnDemand)
 	def script_markStart(self, gesture):
 		self.pt[api.getFocusObject().windowThreadID] = api.getReviewPosition().copy()  # i2=obj.windowHandle
-		ui.message("选择开始点")
+		ui.message(_("选择开始点"))
 
 	@scriptHandler.script(
 		description=_("编辑文档标记结束点"),
@@ -605,7 +608,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			else:
 				ptp = self.pt[id]
 				if pos.compareEndPoints(ptp, "endToEnd") == 0:
-					ui.message("不支持选择")
+					ui.message(_("不支持选择"))
 					return
 				if pos.compareEndPoints(ptp, "endToEnd") > 0:
 					pos.setEndPoint(ptp, "startToStart")
@@ -613,7 +616,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 					pos.setEndPoint(ptp, "endToEnd")
 			api.getReviewPosition().obj._selectThenCopyRange = pos
 			pos.updateSelection()
-			ui.message("选择结束点")
+			ui.message(_("选择结束点"))
 		except Exception as e:
 			log.error(f"Failed to set endpoint: {e}")
 
@@ -624,7 +627,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def script_QueryDictionaryWithSelected(self, gesture):
 		selectedText = self.getSelectionText()
 		if not selectedText:
-			ui.message("请选中要查询的单词或词组")
+			ui.message(_("请选中要查询的单词或词组"))
 			return
 		result = utility.translateWord(self.Dict, selectedText.strip().lower())
 		ui.message(result)
@@ -634,14 +637,14 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		gestures=["kb:alt+printScreen"],
 		**speakOnDemand)
 	def script_currentWindowScreenshotToClipboard(self, gesture):
-		ui.message("当前处于黑屏状态，截图前请先关闭黑屏。") if NAVScreenshot.isScreenCurtainRunning() else gesture.send()
+		ui.message(_("当前处于黑屏状态，截图前请先关闭黑屏。")) if NAVScreenshot.isScreenCurtainRunning() else gesture.send()
 
 	@scriptHandler.script(
 		description=_("截图全屏幕到剪贴板"),
 		gestures=["kb:printScreen"],
 		**speakOnDemand)
 	def script_ScreenshotToClipboard(self, gesture):
-		ui.message("当前处于黑屏状态，截图前请先关闭黑屏。") if NAVScreenshot.isScreenCurtainRunning() else gesture.send()
+		ui.message(_("当前处于黑屏状态，截图前请先关闭黑屏。")) if NAVScreenshot.isScreenCurtainRunning() else gesture.send()
 
 	@scriptHandler.script(
 		description=_("截图当前浏览对象到剪贴板"),
@@ -649,7 +652,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		**speakOnDemand)
 	def script_NAVScreenshotToClipboard(self, gesture):
 		text = (
-			"当前处于黑屏状态，截图前请先关闭黑屏。"
+			_("当前处于黑屏状态，截图前请先关闭黑屏。")
 			if NAVScreenshot.isScreenCurtainRunning()
 			else NAVScreenshot.navigatorObjectScreenshot()
 		)
@@ -671,7 +674,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		ResultText = ""
 		selectedText = self.getSelectionText()
 		if not selectedText:
-			ui.message("未选择文本")
+			ui.message(_("未选择文本"))
 			return
 
 		# 获取剪贴板文本
@@ -679,7 +682,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			ClipboardText = api.getClipData()
 		except Exception as e:
 			api.copyToClip(selectedText)
-			ui.message("拷贝")
+			ui.message(_("拷贝"))
 			log.info(f"Failed to get data from clipboard: {e}")
 			return
 
@@ -687,9 +690,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		ResultText = ClipboardText + "\n" + selectedText
 		try:
 			api.copyToClip(ResultText)
-			ui.message("已追加")
+			ui.message(_("已追加"))
 		except Exception as e:
-			ui.message("追加失败")
+			ui.message(_("追加失败"))
 			log.error(f"Failed to append to clipboard: {e}")
 
 	def getSelectionText(self):
@@ -762,7 +765,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def script_nextClipboardHistory(self, gesture):
 		# 如果剪贴板记录为空，提示并退出
 		if len(self.clipboardDataPool) == 0:
-			ui.message("无剪贴板记录")
+			ui.message(_("无剪贴板记录"))
 			cues.StartOrEnd()
 			return
 		# 如果到达上线索引，给出提示音
@@ -779,7 +782,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def script_prevClipboardHistory(self, gesture):
 		# 如果剪贴板记录为空，提示并退出
 		if len(self.clipboardDataPool) == 0:
-			ui.message("无剪贴板记录")
+			ui.message(_("无剪贴板记录"))
 			cues.StartOrEnd()
 			return
 		# 如果到达下线索引，给出提示音
@@ -797,7 +800,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		countHistory = len(self.clipboardDataPool)
 		# 没有剪贴板记录则什么也不做，直接返回
 		if countHistory == 0:
-			ui.message("无剪贴板记录")
+			ui.message(_("无剪贴板记录"))
 			return
 		data = self.clipboardDataPool[self.cursorClipboardHistory]
 		# 从剪贴板记录中删除需要添加的记录，因为拷贝剪贴板记录到系统剪贴板后，会新增一条相同的剪贴板记录
@@ -816,13 +819,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# 如果没有剪贴板记录则提示并返回
 		countClipboardHistory = len(self.clipboardDataPool)
 		if countClipboardHistory == 0:
-			ui.message("无剪贴板记录")
+			ui.message(_("无剪贴板记录"))
 			return
 		# 清空剪贴板所有记录
 		self.clipboardDataPool = []
 		# 设置剪贴板记录光标指向列表开头
 		self.cursorClipboardHistory = 0
-		ui.message("已成功的清空了所有剪贴板记录")
+		ui.message(_("已成功的清空了所有剪贴板记录"))
 		# 保存剪贴板记录数据到磁盘
 		self._saveClipboardHistoryToFile()
 
@@ -836,7 +839,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.isFileDialogOpen = True
 		def saveClipboardImageToFile():
 			if not isinstance(self.data, bytes):
-				ui.message("不是图片数据")
+				ui.message(_("不是图片数据"))
 				self.isFileDialogOpen = False
 				return
 			from .PIL import Image, ImageGrab
