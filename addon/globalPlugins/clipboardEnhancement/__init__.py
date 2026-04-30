@@ -24,9 +24,9 @@ speechModule = speech.speech if version_year >= 2021 else speech
 speakOnDemand = {"speakOnDemand": True} if version_year >= 2024 else {}
 
 # 剪贴板记录数据文件
-CLIPBOARD_HISTORY_FILENAME = \
-os.path.abspath(
-	os.path.join(os.path.dirname(__file__), "../../../../", "cphistory.db"))
+CLIPBOARD_HISTORY_FILENAME = os.path.abspath(
+	os.path.join(os.path.dirname(__file__), "../../../../", "cphistory.db"),
+)
 
 
 def disableInSecureMode(decoratedCls):
@@ -146,10 +146,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("剪贴板综述"),
 		gestures=["kb:control+numpaddelete", "kb(laptop):NVDA+Alt+'"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_briefClip(self, gesture):
 		if self.text:
-			self.info = f'第{self.line+1}行， 共{len(self.lines)}行， {len("".join(self.lines))}个字'
+			self.info = f"第{self.line + 1}行， 共{len(self.lines)}行， {len(''.join(self.lines))}个字"
 		elif self.files is not None:
 			self.info = self.monitor.calc(self.files)
 		ui.message(self.info)
@@ -157,7 +158,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("剪贴板第一行"),
 		gestures=["kb:control+numpaddivide", "kb(laptop):NVDA+Alt+shift+UpArrow"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_firstLine(self, gesture):
 		self.line = 0
 		ui.message(self.lines[self.line])
@@ -165,7 +167,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("剪贴板最后一行"),
 		gestures=["kb:control+NumpadMultiply", "kb(laptop):NVDA+Alt+shift+DownArrow"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_lastLine(self, gesture):
 		self.line = len(self.lines) - 1
 		ui.message(self.lines[self.line])
@@ -173,28 +176,32 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("剪贴板上一行"),
 		gestures=["kb:control+numpad7", "kb(laptop):NVDA+Alt+UpArrow"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_previousLine(self, gesture):
 		self.switchLine(-1)
 
 	@scriptHandler.script(
 		description=_("剪贴板下一行"),
 		gestures=["kb:control+numpad9", "kb(laptop):NVDA+Alt+DownArrow"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_nextLine(self, gesture):
 		self.switchLine(1)
 
 	@scriptHandler.script(
 		description=_("剪贴板向上十行"),
 		gestures=["kb:control+NumpadMinus", "kb(laptop):NVDA+Shift+Alt+PageUp"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_previousLine10(self, gesture):
 		self.switchLine(-10)
 
 	@scriptHandler.script(
 		description=_("剪贴板向下十行"),
 		gestures=["kb:control+NumpadPlus", "kb(laptop):NVDA+Shift+Alt+PageDown"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_nextLine10(self, gesture):
 		self.switchLine(10)
 
@@ -214,13 +221,15 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("重复刚听到的内容"),
 		gestures=["kb:control+Windows+numpaddelete"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_repeatSpoken(self, gesture):
 		ui.message(self.spoken)
 
 	@scriptHandler.script(
 		description=_("使用较慢的语速和重读单词重复刚听到的内容"),
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_speakSlowly(self, gesture):
 		sequence = []
 		sequence.append(speech.commands.RateCommand(offset=-30))
@@ -248,7 +257,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("拷贝刚听到的内容"),
 		gesture=_("kb:NVDA+c"),
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_copySpoken(self, gesture):
 		repeatCount = scriptHandler.getLastScriptRepeatCount()
 		if repeatCount == 1:
@@ -274,7 +284,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("追加刚听到的内容到剪贴板"),
 		gesture="kb:nvda+X",
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_append(self, gesture):
 		# 设置追加剪贴板操作标志为True，剪贴板记录功能需要根据此标志决定剪贴板数据是新增还是合并
 		self.flagAppendClipboard = True
@@ -296,13 +307,16 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("打开剪贴板编辑器"),
 		gesture="kb:NVDA+E",
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_clipEditor(self, gesture):
 		if self.editor is None:
 			self.editor = MyFrame(gui.mainFrame, title="剪贴板编辑器")
-		self.editor.edit.SetValue(self.text.replace('\r\n', '\n'))
-		point = self.editor.edit.XYToPosition(self.char if self.char >= 0 else 0,
-		                                      self.line if self.line >= 0 else 0)
+		self.editor.edit.SetValue(self.text.replace("\r\n", "\n"))
+		point = self.editor.edit.XYToPosition(
+			self.char if self.char >= 0 else 0,
+			self.line if self.line >= 0 else 0,
+		)
 		self.editor.edit.SetInsertionPoint(point)
 		self.editor.Show(True)
 		self.editor.Maximize(True)
@@ -339,28 +353,32 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("刚听到内容的下一个词句"),
 		gestures=["kb:Control+Windows+Numpad6", "kb(laptop):NVDA+shift+Windows+RightArrow"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_nextSpokenWord(self, gesture):
 		self.switchSpokenWord(1)
 
 	@scriptHandler.script(
 		description=_("刚听到内容的当前词句（解释英文单词）"),
 		gestures=["kb:control+Windows+Numpad5", "kb(laptop):NVDA+shift+Windows+."],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_currentSpokenWord(self, gesture):
 		self.switchSpokenWord()
 
 	@scriptHandler.script(
 		description=_("刚听到内容的上一个词句"),
 		gestures=["kb:Control+Windows+Numpad4", "kb(laptop):NVDA+shift+Windows+LeftArrow"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_previousSpokenWord(self, gesture):
 		self.switchSpokenWord(-1)
 
 	@scriptHandler.script(
 		description=_("刚听到内容的下一个字"),
 		gestures=["kb:Control+Windows+Numpad3", "kb(laptop):NVDA+Windows+RightArrow"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_nextSpokenChar(self, gesture):
 		if not self.spoken:
 			return
@@ -377,7 +395,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("刚听到内容的上一个字"),
 		gestures=["kb:Control+Windows+Numpad1", "kb(laptop):NVDA+Windows+LeftArrow"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_previousSpokenChar(self, gesture):
 		if not self.spoken:
 			return
@@ -393,7 +412,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("刚听到内容的当前字（连按两次解释）"),
 		gestures=["kb:Control+Windows+numpad2", "kb(laptop):NVDA+windows+."],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_currentSpokenChar(self, gesture):
 		if not self.spoken:
 			return
@@ -405,7 +425,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("剪贴板当前字（连按两次解释）"),
 		gestures=["kb:Control+Numpad2", "kb(laptop):NVDA+Alt+."],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_currentChar(self, gesture):
 		if self.line < 0:
 			self.line = 0
@@ -426,14 +447,16 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("剪贴板上一个字"),
 		gestures=["kb:Control+Numpad1", "kb(laptop):NVDA+Alt+LeftArrow"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_previousChar(self, gesture):
 		self._switchChar(-1)
 
 	@scriptHandler.script(
 		description=_("剪贴板下一个字"),
 		gestures=["kb:Control+Numpad3", "kb(laptop):NVDA+Alt+RightArrow"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_nextChar(self, gesture):
 		self._switchChar(1)
 
@@ -447,33 +470,33 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 		# Handle character index moving beyond line boundaries
 		if self.char < 0:  # Before the start of the line
-				if self.line > 0:  # Not the first line
-						self.line -= 1
-						text = self.lines[self.line]
-						self.char = len(text) - 1  # Start from the end of the previous line
-						words = utility.segmentWord(text)[0]
-						self.word = len(words) - 1
-				else:  # At the first line
-						self.char = 0
-				cues.LineBoundary()
+			if self.line > 0:  # Not the first line
+				self.line -= 1
+				text = self.lines[self.line]
+				self.char = len(text) - 1  # Start from the end of the previous line
+				words = utility.segmentWord(text)[0]
+				self.word = len(words) - 1
+			else:  # At the first line
+				self.char = 0
+			cues.LineBoundary()
 
 		elif self.char >= count:  # Beyond the end of the line
-				if self.line < len(self.lines) - 1:  # Not the last line
-						self.line += 1
-						text = self.lines[self.line]
-						self.char = 0  # Start from the beginning of the next line
-						self.word = 0
-				else:  # At the last line
-						self.char = count - 1
-				cues.LineBoundary()
+			if self.line < len(self.lines) - 1:  # Not the last line
+				self.line += 1
+				text = self.lines[self.line]
+				self.char = 0  # Start from the beginning of the next line
+				self.word = 0
+			else:  # At the last line
+				self.char = count - 1
+			cues.LineBoundary()
 
 		# Process the character and word
 		if text:
-				p = utility.segmentWord(text)[1]
-				self.word = utility.charPToWordP(p, self.char)
-				speechModule.speakSpelling(text[self.char])
+			p = utility.segmentWord(text)[1]
+			self.word = utility.charPToWordP(p, self.char)
+			speechModule.speakSpelling(text[self.char])
 		else:
-				ui.message("空白")
+			ui.message("空白")
 
 	def _switchWord(self, step=0):
 		# Ensure the line index is within bounds
@@ -524,38 +547,43 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("剪贴板上一个词句"),
 		gestures=["kb:Control+Numpad4", "kb(laptop):NVDA+Shift+Alt+LeftArrow"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_previousWord(self, gesture):
 		self._switchWord(-1)
 
 	@scriptHandler.script(
 		description=_("剪贴板下一个词句"),
 		gestures=["kb:Control+Numpad6", "kb(laptop):NVDA+Shift+Alt+RightArrow"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_nextWord(self, gesture):
 		self._switchWord(1)
 
 	@scriptHandler.script(
 		description=_("剪贴板当前词句（解释英文单词）"),
 		gestures=["kb:Control+Numpad5", "kb(laptop):NVDA+Shift+Alt+."],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_currentWord(self, gesture):
 		self._switchWord(0)
 
 	@scriptHandler.script(
 		description=_("从剪贴板当前行向下朗读"),
 		gestures=["kb:Control+Numpad8", "kb(laptop):NVDA+Alt+l"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_fromCurrentLine(self, gesture):
 		if self.line < 0:
 			self.line = 0
-		text = self.lines[self.line:]
+		text = self.lines[self.line :]
 		speechModule.speak(text)
 
 	@scriptHandler.script(
 		description=_("打开剪贴板内（或刚听到的）网址"),
 		gestures=["kb:control+numpadEnter", "kb(laptop):NVDA+Alt+Enter"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_openURL(self, gesture):
 		try:
 			if not (utility.tryOpenURL(self.spoken) or utility.tryOpenURL(self.text)):
@@ -566,7 +594,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("编辑文档标记开始点"),
 		gestures=["kb:windows+Numpad4", "kb(laptop):NVDA+alt+["],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_markStart(self, gesture):
 		self.pt[api.getFocusObject().windowThreadID] = api.getReviewPosition().copy()  # i2=obj.windowHandle
 		ui.message("选择开始点")
@@ -574,7 +603,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("编辑文档标记结束点"),
 		gestures=["kb:windows+NumPad6", "kb(laptop):NVDA+alt+]"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_markEnd(self, gesture):
 		id = api.getFocusObject().windowThreadID
 		pos = api.getReviewPosition().copy()
@@ -599,7 +629,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("查询选中单词或词组"),
 		gestures=[],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_QueryDictionaryWithSelected(self, gesture):
 		selectedText = self.getSelectionText()
 		if not selectedText:
@@ -611,21 +642,28 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("截图当前窗口到剪贴板"),
 		gestures=["kb:alt+printScreen"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_currentWindowScreenshotToClipboard(self, gesture):
-		ui.message("当前处于黑屏状态，截图前请先关闭黑屏。") if NAVScreenshot.isScreenCurtainRunning() else gesture.send()
+		ui.message(
+			"当前处于黑屏状态，截图前请先关闭黑屏。",
+		) if NAVScreenshot.isScreenCurtainRunning() else gesture.send()
 
 	@scriptHandler.script(
 		description=_("截图全屏幕到剪贴板"),
 		gestures=["kb:printScreen"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_ScreenshotToClipboard(self, gesture):
-		ui.message("当前处于黑屏状态，截图前请先关闭黑屏。") if NAVScreenshot.isScreenCurtainRunning() else gesture.send()
+		ui.message(
+			"当前处于黑屏状态，截图前请先关闭黑屏。",
+		) if NAVScreenshot.isScreenCurtainRunning() else gesture.send()
 
 	@scriptHandler.script(
 		description=_("截图当前浏览对象到剪贴板"),
 		gestures=["kb:NVDA+printScreen"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_NAVScreenshotToClipboard(self, gesture):
 		text = (
 			"当前处于黑屏状态，截图前请先关闭黑屏。"
@@ -637,7 +675,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("追加已选文字到剪贴板"),
 		gestures=["kb:NVDA+alt+A"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_AppendTextToClipboard(self, gesture):
 		self.AppendTextToClipboard()
 
@@ -675,7 +714,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		info = ""
 		obj = api.getFocusObject()
 		treeInterceptor = obj.treeInterceptor
-		if hasattr(treeInterceptor, 'TextInfo') and not treeInterceptor.passThrough:
+		if hasattr(treeInterceptor, "TextInfo") and not treeInterceptor.passThrough:
 			obj = treeInterceptor
 		try:
 			info = obj.makeTextInfo(textInfos.POSITION_SELECTION)
@@ -703,7 +742,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	@scriptHandler.script(
 		description=_("粘贴刚听到的内容"),
-		gestures=["kb:NVDA+`"])
+		gestures=["kb:NVDA+`"],
+	)
 	def script_pasteLastSpoken(self, gesture):
 		self.monitor.work = False
 		api.copyToClip(self.spoken.rstrip("\r\n"))
@@ -737,7 +777,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("下一条剪贴板记录"),
 		gestures=["kb:CONTROL+WINDOWS+NUMPADPLUS", "kb(laptop):CONTROL+WINDOWS+]"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_nextClipboardHistory(self, gesture):
 		# 如果剪贴板记录为空，提示并退出
 		if len(self.clipboardDataPool) == 0:
@@ -749,12 +790,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			cues.StartOrEnd()
 		data = self._changeClipboardHistory(1)
 		# 仅朗读记录文本的前1000个字符，避免大文本导致NVDA假死
-		ui.message(f"{self.cursorClipboardHistory+1}. {data[:1000]}")
+		ui.message(f"{self.cursorClipboardHistory + 1}. {data[:1000]}")
 
 	@scriptHandler.script(
 		description=_("上一条剪贴板记录"),
 		gestures=["kb:CONTROL+WINDOWS+NUMPADMINUS", "kb(laptop):CONTROL+WINDOWS+["],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_prevClipboardHistory(self, gesture):
 		# 如果剪贴板记录为空，提示并退出
 		if len(self.clipboardDataPool) == 0:
@@ -766,12 +808,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			cues.StartOrEnd()
 		data = self._changeClipboardHistory(-1)
 		# 仅朗读记录文本的前1000个字符，避免大文本导致NVDA假死
-		ui.message(f"{self.cursorClipboardHistory+1}. {data[:1000]}")
+		ui.message(f"{self.cursorClipboardHistory + 1}. {data[:1000]}")
 
 	@scriptHandler.script(
 		description=_("拷贝剪贴板记录到系统剪贴板"),
 		gestures=["kb:CONTROL+WINDOWS+NUMPADMULTIPLY", "kb(laptop):CONTROL+WINDOWS+\\"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_addClipboardHistoryToClipboard(self, gesture):
 		countHistory = len(self.clipboardDataPool)
 		# 没有剪贴板记录则什么也不做，直接返回
@@ -786,7 +829,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		description=_("清空所有剪贴板记录"),
 		gestures=["kb:CONTROL+WINDOWS+DELETE"],
-		**speakOnDemand)
+		**speakOnDemand,
+	)
 	def script_emptyClipboardHistory(self, gesture):
 		countRepeat = scriptHandler.getLastScriptRepeatCount()
 		# 如果不是三击手势则退出
@@ -808,9 +852,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@scriptHandler.script(
 		# Translators: Save the image in clipboard to file
 		description=_("将剪贴板图片另存为文件"),
-		gestures=["kb(desktop):NVDA+alt+printscreen", "kb(laptop):NVDA+alt+printscreen"])
+		gestures=["kb(desktop):NVDA+alt+printscreen", "kb(laptop):NVDA+alt+printscreen"],
+	)
 	def script_saveClipboardImageToFile(self, gesture):
-		if hasattr(self, 'isFileDialogOpen') and self.isFileDialogOpen:
+		if hasattr(self, "isFileDialogOpen") and self.isFileDialogOpen:
 			return
 		self.isFileDialogOpen = True
 

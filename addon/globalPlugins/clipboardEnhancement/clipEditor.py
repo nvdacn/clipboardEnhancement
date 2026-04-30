@@ -13,42 +13,45 @@ class MyFrame(wx.Frame):
 		self.is_exit = False
 		pnl = wx.Panel(self)
 		self.edit = wx.TextCtrl(
-			pnl, pos=(0, 0), style=wx.TE_PROCESS_TAB | wx.TE_MULTILINE | wx.TE_RICH2 | wx.HSCROLL)
+			pnl,
+			pos=(0, 0),
+			style=wx.TE_PROCESS_TAB | wx.TE_MULTILINE | wx.TE_RICH2 | wx.HSCROLL,
+		)
 		menubar = wx.MenuBar()
 		file_menu = wx.Menu()
-		file_menu.Append(wx.ID_OPEN, '打开(&O)\tCtrl+O', '打开文件')
-		update = file_menu.Append(-1, '更新(&S)\tCTRL+S', '更新剪贴板数据')
-		self.saveImage = file_menu.Append(0, '保存图片到文件(&I)\tCtrl+I', '保存剪贴板图片数据为本地文件')
+		file_menu.Append(wx.ID_OPEN, "打开(&O)\tCtrl+O", "打开文件")
+		update = file_menu.Append(-1, "更新(&S)\tCTRL+S", "更新剪贴板数据")
+		self.saveImage = file_menu.Append(0, "保存图片到文件(&I)\tCtrl+I", "保存剪贴板图片数据为本地文件")
 		self.Bind(wx.EVT_MENU, self.on_saveImageFromClip, self.saveImage)
-		file_menu.Append(wx.ID_SAVE, '更新并关闭(&X)\tCTRL+Shift+X', '更新剪贴板数据并关闭剪贴板编辑器')
-		file_menu.Append(wx.ID_SAVEAS, '另存为(&A)\tCTRL+Shift+S', '另存为文件')
-		file_menu.Append(wx.ID_EXIT, '退出(&C)\tCTRL+E', '关闭剪贴板编辑器')
+		file_menu.Append(wx.ID_SAVE, "更新并关闭(&X)\tCTRL+Shift+X", "更新剪贴板数据并关闭剪贴板编辑器")
+		file_menu.Append(wx.ID_SAVEAS, "另存为(&A)\tCTRL+Shift+S", "另存为文件")
+		file_menu.Append(wx.ID_EXIT, "退出(&C)\tCTRL+E", "关闭剪贴板编辑器")
 		self.edit.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
 		self.Bind(wx.EVT_MENU, self.on_open, id=wx.ID_OPEN)
 		self.Bind(wx.EVT_MENU, self.on_update, update)
 		self.Bind(wx.EVT_MENU, self.on_save, id=wx.ID_SAVE)
 		self.Bind(wx.EVT_MENU, self.on_save_as, id=wx.ID_SAVEAS)
 		self.Bind(wx.EVT_MENU, self.on_exit, id=wx.ID_EXIT)
-		menubar.Append(file_menu, '文件(&F)')
+		menubar.Append(file_menu, "文件(&F)")
 		# Use the SET FOCUS event instead
 		# self.Bind(wx.EVT_MENU_OPEN, self.OnMenuOpen, id=menubar.GetId())
 		self.Bind(wx.EVT_SET_FOCUS, self.OnSetFocus)
 		self.Bind(wx.EVT_SHOW, self.on_show)
 		self.Bind(wx.EVT_CLOSE, self.on_exit)
 		edit_menu = wx.Menu()
-		find = edit_menu.Append(-1, '查找(&F)\tCtrl+F', '查找文本')
+		find = edit_menu.Append(-1, "查找(&F)\tCtrl+F", "查找文本")
 		self.Bind(wx.EVT_MENU, self.on_show_find, find)
-		replace = edit_menu.Append(-1, '替换(&H)\tCtrl+H', '替换文本')
+		replace = edit_menu.Append(-1, "替换(&H)\tCtrl+H", "替换文本")
 		self.Bind(wx.EVT_MENU, self.on_show_replace, replace)
-		next_item = edit_menu.Append(-1, '查找下一个(&N)\tF3', '查找下一个匹配项')
+		next_item = edit_menu.Append(-1, "查找下一个(&N)\tF3", "查找下一个匹配项")
 		self.Bind(wx.EVT_MENU, self.on_next, next_item)
-		goto_item = edit_menu.Append(-1, '转到(&G)\tCtrl+G', '转到指定行')
+		goto_item = edit_menu.Append(-1, "转到(&G)\tCtrl+G", "转到指定行")
 		self.Bind(wx.EVT_MENU, self.on_goto, goto_item)
-		previous_item = edit_menu.Append(-1, '查找上一个(&P)\tShift+F3', '查找上一个匹配项')
+		previous_item = edit_menu.Append(-1, "查找上一个(&P)\tShift+F3", "查找上一个匹配项")
 		self.Bind(wx.EVT_MENU, self.on_previous, previous_item)
-		replacement = edit_menu.Append(-1, '正则替换(&R)\tCtrl+R', '使用正则表达式替换文本')
+		replacement = edit_menu.Append(-1, "正则替换(&R)\tCtrl+R", "使用正则表达式替换文本")
 		self.Bind(wx.EVT_MENU, self.on_replacement, replacement)
-		menubar.Append(edit_menu, '编辑(&E)')
+		menubar.Append(edit_menu, "编辑(&E)")
 		self.SetMenuBar(menubar)
 		self.find_data = wx.FindReplaceData(wx.FR_DOWN)
 		# self.edit.SetFont(wx.FFont(7, wx.DEFAULT, wx.NORMAL))
@@ -105,14 +108,14 @@ class MyFrame(wx.Frame):
 			self.on_find(wx.EVT_FIND)
 
 	def on_show_find(self, event):
-		dlg = wx.FindReplaceDialog(self, self.find_data, '查找')
+		dlg = wx.FindReplaceDialog(self, self.find_data, "查找")
 		dlg.Bind(wx.EVT_FIND, self.on_find)
 		dlg.Bind(wx.EVT_FIND_NEXT, self.on_find)
 		dlg.Bind(wx.EVT_FIND_CLOSE, self.on_find_close)
 		dlg.Show()
 
 	def on_show_replace(self, event):
-		dlg = wx.FindReplaceDialog(self, self.find_data, '替换', wx.FR_REPLACEDIALOG)
+		dlg = wx.FindReplaceDialog(self, self.find_data, "替换", wx.FR_REPLACEDIALOG)
 		dlg.Bind(wx.EVT_FIND, self.on_find)
 		dlg.Bind(wx.EVT_FIND_REPLACE, self.on_replace)
 		dlg.Bind(wx.EVT_FIND_REPLACE_ALL, self.on_replace_all)
@@ -140,7 +143,7 @@ class MyFrame(wx.Frame):
 			start += offset if self.find_data.GetFlags() & wx.FR_DOWN else 0
 			self.edit.SetSelection(start, start + len(find_text))
 		else:
-			wx.MessageBox('找不到\"{}\"'.format(find_text), '提示')
+			wx.MessageBox('找不到"{}"'.format(find_text), "提示")
 
 	def on_replace(self, event):
 		find_text = self.find_data.GetFindString()
@@ -170,9 +173,9 @@ class MyFrame(wx.Frame):
 			offset = self.edit.GetInsertionPoint()
 			count += 1
 		if count > 0:
-			wx.MessageBox('已替换{}个匹配项'.format(count), '提示')
+			wx.MessageBox("已替换{}个匹配项".format(count), "提示")
 		else:
-			wx.MessageBox('找不到\"{}\"'.format(find_text), '提示')
+			wx.MessageBox('找不到"{}"'.format(find_text), "提示")
 
 	def on_find_close(self, event):
 		event.GetDialog().Destroy()
@@ -187,12 +190,12 @@ class MyFrame(wx.Frame):
 			total_lines = 1
 		dlg = wx.NumberEntryDialog(
 			self,
-			'请输入要跳转到的行号:',
-			'行号(&L)',
-			'转到指定行',
+			"请输入要跳转到的行号:",
+			"行号(&L)",
+			"转到指定行",
 			current_line_num + 1,
 			1,
-			total_lines
+			total_lines,
 		)
 		if dlg.ShowModal() == wx.ID_OK:
 			target_line = dlg.GetValue()
@@ -203,11 +206,16 @@ class MyFrame(wx.Frame):
 		dlg.Destroy()
 
 	def on_open(self, event):
-		wildcard = '文本文档 (*.txt)|*.txt|' \
-		'所有文件 (*.*)|*.*'
-		filename = ''
-		dlg = wx.FileDialog(self, message='选择一个文件', defaultDir='', defaultFile="", wildcard=wildcard,
-		                    style=wx.FD_OPEN | wx.FD_CHANGE_DIR | wx.FD_FILE_MUST_EXIST)
+		wildcard = "文本文档 (*.txt)|*.txt|所有文件 (*.*)|*.*"
+		filename = ""
+		dlg = wx.FileDialog(
+			self,
+			message="选择一个文件",
+			defaultDir="",
+			defaultFile="",
+			wildcard=wildcard,
+			style=wx.FD_OPEN | wx.FD_CHANGE_DIR | wx.FD_FILE_MUST_EXIST,
+		)
 		if dlg.ShowModal() == wx.ID_OK:
 			filename = dlg.GetPath()
 		dlg.Destroy()
@@ -219,25 +227,30 @@ class MyFrame(wx.Frame):
 		except Exception as e:
 			log.warning(f"An unexpected error occurred: {e}")
 			try:
-				with open(filename, encoding='utf-8') as f:
+				with open(filename, encoding="utf-8") as f:
 					self.edit.SetValue(f.read())
 			except Exception as e:
-				wx.MessageBox(str(e), '错误')
+				wx.MessageBox(str(e), "错误")
 
 	def on_save_as(self, evt):
 		text = self.edit.GetValue()
-		wildcard = '文本文档 (*.txt)|*.txt|' \
-		'所有文件 (*.*)|*.*'
-		filepath = ''
-		dlg = wx.FileDialog(self, message='文件另存为...', defaultDir='', defaultFile='', wildcard=wildcard,
-		                    style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+		wildcard = "文本文档 (*.txt)|*.txt|所有文件 (*.*)|*.*"
+		filepath = ""
+		dlg = wx.FileDialog(
+			self,
+			message="文件另存为...",
+			defaultDir="",
+			defaultFile="",
+			wildcard=wildcard,
+			style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+		)
 		if dlg.ShowModal() == wx.ID_OK:
 			filepath = dlg.GetPath()
 		dlg.Destroy()
 		if not filepath:
 			return
-		with open(filepath, 'wb') as f:
-			f.write(text.encode('utf8'))
+		with open(filepath, "wb") as f:
+			f.write(text.encode("utf8"))
 
 	def on_save(self, event):
 		text = self.edit.GetValue()
@@ -259,6 +272,7 @@ class MyFrame(wx.Frame):
 
 	def clear_clipboard(self):
 		import winUser
+
 		with winUser.openClipboard():
 			winUser.emptyClipboard()
 

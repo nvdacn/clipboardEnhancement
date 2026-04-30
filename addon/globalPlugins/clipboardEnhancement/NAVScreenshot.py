@@ -6,6 +6,7 @@ import vision
 from contentRecog import RecogImageInfo
 from ctypes import windll
 from . import bitmap
+
 gdi32 = windll.gdi32
 user32 = windll.user32
 
@@ -41,9 +42,11 @@ def navigatorObjectScreenshot():
 def isScreenCurtainRunning():
 	try:
 		import screenCurtain
+
 		return screenCurtain.screenCurtain and screenCurtain.screenCurtain.enabled
 	except ModuleNotFoundError:
 		from visionEnhancementProviders.screenCurtain import ScreenCurtainProvider
+
 		screenCurtainId = ScreenCurtainProvider.getSettings().getId()
 		screenCurtainProviderInfo = vision.handler.getProviderInfo(screenCurtainId)
 		return bool(vision.handler.getProviderInstance(screenCurtainProviderInfo))
