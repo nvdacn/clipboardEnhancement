@@ -20,7 +20,7 @@ Currently, the Clipboard Enhancement add-on does not have internationalization s
 
 ## Future Plans
 
-We are planning to provide internationalization support in future releases to allow more NVDA users to benefit from this add-on. 
+We are planning to provide internationalization support in future releases to allow more NVDA users to benefit from this add-on.
 
 ## Contributing
 
