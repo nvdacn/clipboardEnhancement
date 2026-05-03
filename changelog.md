@@ -1,3 +1,3 @@
-### 2.9.3
+### 2.9.4
 
-Bump version, compatible with NVDA 2026.1.0.
+Update doc.
