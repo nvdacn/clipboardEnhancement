@@ -267,20 +267,20 @@ class MyFrame(wx.Frame):
 				self,
 				_("文档已更改，是否保存？"),
 				_("保存确认"),
-				wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION
+				wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION,
 			)
 			result = dlg.ShowModal()
 			dlg.Destroy()
-			
+
 			if result == wx.ID_YES:
 				# 用户选择保存，更新剪贴板
 				self.on_update(wx.CommandEvent())
 			elif result == wx.ID_CANCEL:
 				# 用户选择取消，不关闭编辑器
-				if hasattr(event, 'Veto'):
+				if hasattr(event, "Veto"):
 					event.Veto()
 				return
-		
+
 		self.Show(False)
 
 	def on_saveImageFromClip(self, evt):
