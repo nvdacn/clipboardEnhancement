@@ -61,6 +61,10 @@ class MyFrame(wx.Frame):
 	def on_key_down(self, evt):
 		code = evt.GetKeyCode()
 		if code == wx.WXK_ESCAPE:
+			position = self.edit.GetInsertionPoint()
+			XY = self.edit.PositionToXY(position)
+			if XY[0]:
+				self.set_clipboard_position(XY[1], XY[2])
 			self.on_exit(evt)
 			return
 		evt.Skip()
@@ -74,6 +78,7 @@ class MyFrame(wx.Frame):
 			self.clear_clipboard()
 		else:
 			api.copyToClip(text)
+		self.original_content = text
 
 	def on_replacement(self, evt):
 		dlg = reReplace.ReDialog(self)
@@ -275,6 +280,7 @@ class MyFrame(wx.Frame):
 			if result == wx.ID_YES:
 				# 用户选择保存，更新剪贴板
 				self.on_update(wx.CommandEvent())
+				self.original_content = current_content
 			elif result == wx.ID_CANCEL:
 				# 用户选择取消，不关闭编辑器
 				if hasattr(event, "Veto"):
