@@ -94,7 +94,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.editor = MyFrame(gui.mainFrame, title="剪贴板编辑器")
 		self.monitor = ClipboardMonitor(
 			onSnapshot=self._onClipboardSnapshot,
-			onUpdate=self._onClipboardUpdate,
 		)
 		try:
 			self.monitor.start()
@@ -111,17 +110,16 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def loadFiles(self):
 		self.Dict = utility.loadDict()
 
-	def _onClipboardUpdate(self) -> None:
-		"""Provide immediate feedback when Windows reports a clipboard update."""
-		cues.Copy()
-
 	def _readInitialClipboardSnapshot(self) -> None:
 		"""Read the clipboard once during add-on initialization."""
 		if self.monitor is not None:
-			self._onClipboardSnapshot(self.monitor.readNow())
+			self._onClipboardSnapshot(self.monitor.readNow(), playCue=False)
 
-	def _onClipboardSnapshot(self, snapshot: ClipboardSnapshot) -> None:
+	def _onClipboardSnapshot(self, snapshot: ClipboardSnapshot, playCue: bool = True) -> None:
 		"""Adapt a clipboard snapshot to the add-on's existing clipboard state."""
+		if snapshot.contentType == ClipboardContentType.ERROR:
+			log.debug(f"Skipped failed clipboard snapshot: {snapshot.error}")
+			return
 		if snapshot.contentType == ClipboardContentType.TEXT:
 			data = snapshot.text
 		elif snapshot.contentType == ClipboardContentType.FILES:
@@ -131,6 +129,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		else:
 			data = None
 		self._updateClipboardState(data)
+		if playCue:
+			cues.Copy()
 
 	def _updateClipboardState(self, data: str | list[str] | bytes | None) -> None:
 		"""Update add-on state from clipboard data."""

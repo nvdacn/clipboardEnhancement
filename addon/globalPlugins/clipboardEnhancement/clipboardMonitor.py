@@ -5,7 +5,7 @@ from ctypes import POINTER, WinError, c_int, create_unicode_buffer, windll, wstr
 import ctypes.wintypes as w
 from dataclasses import dataclass
 from enum import Enum
-from threading import Lock, Timer, current_thread
+from threading import Lock, Thread, Timer, current_thread
 from time import sleep
 
 from logHandler import log
@@ -17,7 +17,6 @@ __all__ = [
 	"ClipboardMonitor",
 	"ClipboardSnapshot",
 	"ClipboardSnapshotCallback",
-	"ClipboardUpdateCallback",
 	"DEFAULT_RESUME_DELAY",
 ]
 
@@ -35,7 +34,7 @@ class ClipboardContentType(Enum):
 
 @dataclass(frozen=True)
 class ClipboardSnapshot:
-	"""A stable snapshot of the clipboard content recognized by the monitor."""
+	"""Clipboard content recognized by the monitor."""
 
 	contentType: ClipboardContentType
 	formatId: int | None = None
@@ -45,7 +44,6 @@ class ClipboardSnapshot:
 
 
 ClipboardSnapshotCallback = Callable[[ClipboardSnapshot], None]
-ClipboardUpdateCallback = Callable[[], None]
 
 CF_BITMAP = 0x2
 CF_DIB = 0x8
@@ -56,7 +54,6 @@ WM_CLIPBOARDUPDATE = 0x031D
 HWND_MESSAGE = -3
 DRAG_QUERY_FILE_COUNT = 0xFFFFFFFF
 
-DEFAULT_QUIET_PERIOD = 0.35
 DEFAULT_OPEN_RETRIES = 10
 DEFAULT_OPEN_RETRY_INTERVAL = 0.05
 DEFAULT_RESUME_DELAY = 0.2
@@ -125,35 +122,28 @@ class ClipboardMonitor:
 	"""Monitor clipboard changes for an NVDA add-on.
 
 	Call :meth:`start` and :meth:`stop` from NVDA's main thread.
-	``onUpdate`` is called immediately from the message window thread.
-	``onSnapshot`` is called on the wx main thread after the clipboard stops changing.
+	``onSnapshot`` is called on the wx main thread after clipboard data is read.
 	"""
 
 	def __init__(
 		self,
 		onSnapshot: ClipboardSnapshotCallback | None = None,
-		onUpdate: ClipboardUpdateCallback | None = None,
-		quietPeriod: float = DEFAULT_QUIET_PERIOD,
 		openRetries: int = DEFAULT_OPEN_RETRIES,
 		openRetryInterval: float = DEFAULT_OPEN_RETRY_INTERVAL,
 	) -> None:
 		"""Initialize a clipboard monitor for an NVDA add-on."""
 		self._onSnapshot = onSnapshot
-		self._onUpdate = onUpdate
-		self._quietPeriod = quietPeriod
 		self._openRetries = openRetries
 		self._openRetryInterval = openRetryInterval
 		self._window: _ClipboardMessageWindow | None = None
-		self._snapshotTimer: Timer | None = None
 		self._resumeTimer: Timer | None = None
 		self._lock = Lock()
-		self._snapshotGeneration = 0
-		self._resumeGeneration = 0
+		self._dispatchToken = 0
+		self._resumeToken = 0
 		self._isRunning = False
 		self._isSuppressed = False
 		log.debug(
-			"ClipboardMonitor initialized: quietPeriod={}, openRetries={}, openRetryInterval={}".format(
-				quietPeriod,
+			"ClipboardMonitor initialized: openRetries={}, openRetryInterval={}".format(
 				openRetries,
 				openRetryInterval,
 			),
@@ -166,14 +156,12 @@ class ClipboardMonitor:
 			return
 		window = _createClipboardMessageWindow(self)
 		if window.handle is None:
-			self._window = None
 			raise RuntimeError("Clipboard monitor window was not created.")
-		self._window = window
 		if not _addClipboardFormatListener(window.handle):
 			error = WinError()
 			window.destroy()
-			self._window = None
 			raise error
+		self._window = window
 		with self._lock:
 			self._isRunning = True
 			self._isSuppressed = False
@@ -184,8 +172,8 @@ class ClipboardMonitor:
 		with self._lock:
 			self._isRunning = False
 			self._isSuppressed = True
-			self._cancelSnapshotTimerLocked(invalidate=True)
-			self._cancelResumeTimerLocked(invalidate=True)
+			self._dispatchToken += 1
+			self._cancelPendingResumeLocked()
 		if self._window is None:
 			return
 		if not _removeClipboardFormatListener(self._window.handle):
@@ -214,33 +202,33 @@ class ClipboardMonitor:
 		"""Ignore clipboard changes until resume is called."""
 		with self._lock:
 			self._isSuppressed = True
-			self._cancelSnapshotTimerLocked(invalidate=True)
-			self._cancelResumeTimerLocked(invalidate=True)
+			self._dispatchToken += 1
+			self._cancelPendingResumeLocked()
 		log.debug("ClipboardMonitor suppressed.")
 
 	def resume(self, delay: float = 0.0) -> None:
 		"""Resume processing clipboard changes, optionally after a delay."""
 		with self._lock:
 			if not self._isRunning:
-				self._cancelResumeTimerLocked(invalidate=True)
+				self._cancelPendingResumeLocked()
 				log.debug("ClipboardMonitor resume ignored because monitor is stopped.")
 				return
 			if delay > 0:
-				self._cancelResumeTimerLocked(invalidate=True)
-				generation = self._resumeGeneration
-				self._resumeTimer = Timer(delay, self._resumeAfterDelay, args=(generation,))
+				self._cancelPendingResumeLocked()
+				resumeToken = self._resumeToken
+				self._resumeTimer = Timer(delay, self._resumeAfterDelay, args=(resumeToken,))
 				self._resumeTimer.daemon = True
 				self._resumeTimer.start()
 				log.debug(f"ClipboardMonitor resume scheduled: delay={delay}")
 				return
-			self._cancelResumeTimerLocked(invalidate=True)
+			self._cancelPendingResumeLocked()
 			self._isSuppressed = False
 		log.debug("ClipboardMonitor resumed.")
 
-	def _resumeAfterDelay(self, generation: int) -> None:
+	def _resumeAfterDelay(self, resumeToken: int) -> None:
 		"""Resume processing if the delayed resume request is still current."""
 		with self._lock:
-			if generation != self._resumeGeneration or self._resumeTimer is None or not self._isRunning:
+			if resumeToken != self._resumeToken or self._resumeTimer is None or not self._isRunning:
 				return
 			self._resumeTimer = None
 			self._isSuppressed = False
@@ -249,113 +237,73 @@ class ClipboardMonitor:
 	def _handleClipboardUpdate(self) -> None:
 		"""Handle WM_CLIPBOARDUPDATE from the message window."""
 		with self._lock:
-			shouldProcess = self._isRunning and not self._isSuppressed
+			shouldRead = self._isRunning and not self._isSuppressed
+			dispatchToken = self._dispatchToken
 		log.debug(
-			"ClipboardMonitor received WM_CLIPBOARDUPDATE: process={}, thread={}".format(
-				shouldProcess,
+			"ClipboardMonitor received WM_CLIPBOARDUPDATE: shouldRead={}, thread={}".format(
+				shouldRead,
 				current_thread().name,
 			),
 		)
-		if not shouldProcess:
+		if not shouldRead:
 			return
-		isNewBatch = self._scheduleRead()
-		if isNewBatch and self._onUpdate is not None:
-			self._safeCall(self._onUpdate)
+		thread = Thread(
+			target=self._readAndDispatchSnapshot,
+			args=(dispatchToken,),
+			name="clipboardMonitorRead",
+		)
+		thread.daemon = True
+		thread.start()
+		log.debug("ClipboardMonitor started read thread.")
 
-	def _scheduleRead(self) -> bool:
-		"""Schedule a coalesced snapshot read."""
-		with self._lock:
-			if not self._isRunning or self._isSuppressed:
-				return False
-			isNewBatch = self._snapshotTimer is None
-			self._snapshotGeneration += 1
-			generation = self._snapshotGeneration
-			self._cancelSnapshotTimerLocked()
-			self._snapshotTimer = Timer(self._quietPeriod, self._onQuietPeriodElapsed, args=(generation,))
-			self._snapshotTimer.daemon = True
-			self._snapshotTimer.start()
-			log.debug(
-				"ClipboardMonitor scheduled read: quietPeriod={}, isNewBatch={}, generation={}".format(
-					self._quietPeriod,
-					isNewBatch,
-					generation,
-				),
-			)
-			return isNewBatch
-
-	def _cancelSnapshotTimerLocked(self, invalidate: bool = False) -> None:
-		"""Cancel any pending snapshot read while holding the monitor lock."""
-		if invalidate:
-			self._snapshotGeneration += 1
-		if self._snapshotTimer is not None:
-			self._snapshotTimer.cancel()
-			self._snapshotTimer = None
-			log.debug("ClipboardMonitor canceled pending read.")
-
-	def _cancelResumeTimerLocked(self, invalidate: bool = False) -> None:
-		"""Cancel any pending delayed resume while holding the monitor lock."""
-		if invalidate:
-			self._resumeGeneration += 1
+	def _cancelPendingResumeLocked(self) -> None:
+		"""Cancel and invalidate any pending delayed resume while holding the monitor lock."""
+		self._resumeToken += 1
 		if self._resumeTimer is not None:
 			self._resumeTimer.cancel()
 			self._resumeTimer = None
 			log.debug("ClipboardMonitor canceled pending resume.")
 
-	def _onQuietPeriodElapsed(self, generation: int) -> None:
-		"""Read the clipboard after no newer update has arrived."""
-		with self._lock:
-			if (
-				self._snapshotTimer is None
-				or generation != self._snapshotGeneration
-				or not self._isRunning
-				or self._isSuppressed
-			):
-				return
-			self._snapshotTimer = None
+	def _readAndDispatchSnapshot(self, dispatchToken: int) -> None:
+		"""Read the clipboard and queue the callback unless monitor state changed."""
 		snapshot = self.readNow()
 		with self._lock:
-			if generation != self._snapshotGeneration or not self._isRunning or self._isSuppressed:
-				log.debug("ClipboardMonitor dropped stale snapshot.")
+			if dispatchToken != self._dispatchToken or not self._isRunning or self._isSuppressed:
+				log.debug("ClipboardMonitor dropped snapshot after state change.")
 				return
 		if self._onSnapshot is not None:
-			wx.CallAfter(self._safeDispatchSnapshot, generation, snapshot)
+			wx.CallAfter(self._dispatchSnapshot, dispatchToken, snapshot)
 
-	def _safeDispatchSnapshot(self, generation: int, snapshot: ClipboardSnapshot) -> None:
+	def _dispatchSnapshot(self, dispatchToken: int, snapshot: ClipboardSnapshot) -> None:
 		"""Dispatch a snapshot callback if it is still current."""
 		with self._lock:
-			if generation != self._snapshotGeneration or not self._isRunning or self._isSuppressed:
-				log.debug("ClipboardMonitor dropped queued snapshot.")
+			if dispatchToken != self._dispatchToken or not self._isRunning or self._isSuppressed:
+				log.debug("ClipboardMonitor dropped queued snapshot after state change.")
 				return
 			callback = self._onSnapshot
 		if callback is not None:
-			self._safeCall(callback, snapshot)
-
-	def _safeCall(self, callback: Callable[..., None], *args: object) -> None:
-		"""Call a user callback without letting exceptions escape wx dispatch."""
-		try:
-			callback(*args)
-		except Exception:
-			log.debugWarning("ClipboardMonitor callback failed.", exc_info=True)
+			try:
+				callback(snapshot)
+			except Exception:
+				log.debugWarning("ClipboardMonitor callback failed.", exc_info=True)
 
 	def _readSnapshot(self) -> ClipboardSnapshot:
 		"""Read the clipboard into a snapshot."""
-		formatId = self._getPriorityFormat()
-		if formatId == 0:
-			return ClipboardSnapshot(ClipboardContentType.EMPTY, formatId=formatId)
-		if formatId == -1:
-			return ClipboardSnapshot(ClipboardContentType.UNSUPPORTED, formatId=formatId)
-		if formatId in _IMAGE_FORMATS:
-			return ClipboardSnapshot(ClipboardContentType.IMAGE, formatId=formatId)
-		if formatId not in (CF_UNICODETEXT, CF_HDROP):
-			return ClipboardSnapshot(ClipboardContentType.UNSUPPORTED, formatId=formatId)
-
 		if not self._openClipboardWithRetry():
 			return ClipboardSnapshot(
 				ClipboardContentType.ERROR,
-				formatId=formatId,
 				error="OpenClipboard failed",
 			)
 		try:
+			formatId = self._getPriorityFormat()
+			if formatId == 0:
+				return ClipboardSnapshot(ClipboardContentType.EMPTY, formatId=formatId)
+			if formatId == -1:
+				return ClipboardSnapshot(ClipboardContentType.UNSUPPORTED, formatId=formatId)
+			if formatId in _IMAGE_FORMATS:
+				return ClipboardSnapshot(ClipboardContentType.IMAGE, formatId=formatId)
+			if formatId not in (CF_UNICODETEXT, CF_HDROP):
+				return ClipboardSnapshot(ClipboardContentType.UNSUPPORTED, formatId=formatId)
 			if formatId == CF_UNICODETEXT:
 				return ClipboardSnapshot(
 					ClipboardContentType.TEXT,

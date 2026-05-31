@@ -1,3 +1,7 @@
+### 2.9.6
+
+Clipboard monitor stability fixes.
+
 ### 2.9.5
 
 Migrate clipboard monitoring to a dedicated module and improve clipboard update timing handling.
