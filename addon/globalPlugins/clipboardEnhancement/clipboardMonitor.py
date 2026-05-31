@@ -350,7 +350,11 @@ class ClipboardMonitor:
 			return ClipboardSnapshot(ClipboardContentType.UNSUPPORTED, formatId=formatId)
 
 		if not self._openClipboardWithRetry():
-			return ClipboardSnapshot(ClipboardContentType.ERROR, formatId=formatId, error="OpenClipboard failed")
+			return ClipboardSnapshot(
+				ClipboardContentType.ERROR,
+				formatId=formatId,
+				error="OpenClipboard failed",
+			)
 		try:
 			if formatId == CF_UNICODETEXT:
 				return ClipboardSnapshot(
