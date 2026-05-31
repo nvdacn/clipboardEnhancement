@@ -15,9 +15,11 @@ from . import utility
 from . import cues
 from .clipEditor import MyFrame
 from . import NAVScreenshot
+from .clipboardMonitor import ClipboardContentType, ClipboardMonitor, ClipboardSnapshot, DEFAULT_RESUME_DELAY
 import os
 import json
 import wx
+from threading import Thread
 
 
 speechModule = speech.speech if version_year >= 2021 else speech
@@ -88,12 +90,19 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			data = json.loads(data)
 		return data
 
-	def clipboard(self):
+	def clipboard(self) -> None:
 		self.editor = MyFrame(gui.mainFrame, title="剪贴板编辑器")
-		self.monitor = utility.ClipboardMonitor(self.editor.GetHandle())
-		self.monitor.customization = self.func
-		callLater(100, self.monitor.get_clipboard_data)
-		self.monitor.StartMonitor()
+		self.monitor = ClipboardMonitor(
+			onSnapshot=self._onClipboardSnapshot,
+			onUpdate=self._onClipboardUpdate,
+		)
+		try:
+			self.monitor.start()
+		except Exception:
+			log.error("Failed to start clipboard monitor.", exc_info=True)
+			self.monitor = None
+			return
+		callLater(100, self._readInitialClipboardSnapshot)
 		self.editor.setClipboardPosition = self.setPosition
 
 	def setPosition(self, char, line):
@@ -102,13 +111,34 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def loadFiles(self):
 		self.Dict = utility.loadDict()
 
-	def func(self):
+	def _onClipboardUpdate(self) -> None:
+		"""Provide immediate feedback when Windows reports a clipboard update."""
+		cues.Copy()
+
+	def _readInitialClipboardSnapshot(self) -> None:
+		"""Read the clipboard once during add-on initialization."""
+		if self.monitor is not None:
+			self._onClipboardSnapshot(self.monitor.readNow())
+
+	def _onClipboardSnapshot(self, snapshot: ClipboardSnapshot) -> None:
+		"""Adapt a clipboard snapshot to the add-on's existing clipboard state."""
+		if snapshot.contentType == ClipboardContentType.TEXT:
+			data = snapshot.text
+		elif snapshot.contentType == ClipboardContentType.FILES:
+			data = list(snapshot.files)
+		elif snapshot.contentType == ClipboardContentType.IMAGE:
+			data = b""
+		else:
+			data = None
+		self._updateClipboardState(data)
+
+	def _updateClipboardState(self, data: str | list[str] | bytes | None) -> None:
+		"""Update add-on state from clipboard data."""
 		self.text = ""
 		self.files = None
 		self.info = "无数据"
 		self.lines = ["无数据"]
 		self.word = self.line = self.char = -1
-		data = self.monitor.getData()
 		# 缓存剪贴板数据
 		self.data = data
 		# 添加数据到剪贴板记录池
@@ -140,8 +170,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			self.files = data
 			self.lines = list(utility.fileLists(data))
 		elif isinstance(data, bytes):
-			self.lines = [f"图片： {utility.getBitmapInfo()}"]
-			self.info = f"图片： {utility.getBitmapInfo()}"
+			# Translators: Clipboard summary when the clipboard currently contains an image.
+			self.info = _("图片")
+			self.lines = [self.info]
 
 	@scriptHandler.script(
 		description=_("剪贴板综述"),
@@ -152,7 +183,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if self.text:
 			self.info = f"第{self.line + 1}行， 共{len(self.lines)}行， {len(''.join(self.lines))}个字"
 		elif self.files is not None:
-			self.info = self.monitor.calc(self.files)
+			self.info = utility.calcFiles(self.files)
 		ui.message(self.info)
 
 	@scriptHandler.script(
@@ -726,8 +757,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			return info.text
 
 	def terminate(self):
-		self.monitor.Stop()
-		self.monitor = None
+		if self.monitor is not None:
+			self.monitor.stop()
+			self.monitor = None
 		speechModule.speak = self.oldSpeak
 		# Do not set self.oldSpeak to None.
 		# Since many add-ons can patch speech.speak and since the order in which patching and unpatching is not
@@ -745,10 +777,16 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		gestures=["kb:NVDA+`"],
 	)
 	def script_pasteLastSpoken(self, gesture):
-		self.monitor.work = False
-		api.copyToClip(self.spoken.rstrip("\r\n"))
-		KeyboardInputGesture.fromName("control+v").send()
-		utility.Thread(target=utility.paste, args=(self,)).start()
+		if self.monitor is not None:
+			self.monitor.suppress()
+		try:
+			api.copyToClip(self.spoken.rstrip("\r\n"))
+			KeyboardInputGesture.fromName("control+v").send()
+			Thread(target=utility.paste, args=(self,)).start()
+		except Exception:
+			if self.monitor is not None:
+				self.monitor.resume(delay=DEFAULT_RESUME_DELAY)
+			raise
 
 	def _changeClipboardHistory(self, step):
 		# 参数检查，步长值只能=1货=-1
@@ -771,7 +809,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		elif isinstance(data, list):
 			lines = list(utility.fileLists(data))
 		elif isinstance(data, bytes):
-			lines = [f"图片： {utility.getBitmapInfo()}"]
+			# Translators: Clipboard summary when the clipboard history entry contains an image.
+			lines = [_("图片")]
 		return "".join(lines)
 
 	@scriptHandler.script(

@@ -1,20 +1,17 @@
 import re
 import wx
 import webbrowser
-import ctypes.wintypes as w
-import sys
 import os
 
 from pickle import load
-from threading import Thread
-from ctypes import windll, WINFUNCTYPE, c_int, c_void_p, c_buffer, sizeof, wstring_at
 from os import walk
 from logHandler import log
 from api import copyToClip
 from ui import message
 from os.path import basename, join, dirname, isfile, getsize
 from time import sleep
-from . import cues
+
+from .clipboardMonitor import DEFAULT_RESUME_DELAY
 
 
 def fileLists(files):
@@ -101,45 +98,9 @@ def tryOpenURL(text: str) -> bool:
 	return False
 
 
-CF_UNICODETEXT = 0xD
-CF_HDROP = 0xF
-CF_UPDATE = 0x031D
-PASTED = 0x7FFE
-u32 = windll.user32
-k32 = windll.kernel32
-s32 = windll.shell32
+CLIPBOARD_OPEN_ATTEMPTS = 10
+CLIPBOARD_OPEN_RETRY_INTERVAL = 0.05
 
-OpenClipboard = u32.OpenClipboard
-OpenClipboard.argtypes = (w.HWND,)
-OpenClipboard.restype = w.BOOL
-GetClipboardData = u32.GetClipboardData
-GetClipboardData.argtypes = (w.UINT,)
-GetClipboardData.restype = w.HANDLE
-GlobalLock = k32.GlobalLock
-GlobalLock.argtypes = (w.HGLOBAL,)
-GlobalLock.restype = w.LPVOID
-GlobalUnlock = k32.GlobalUnlock
-GlobalUnlock.argtypes = (w.HGLOBAL,)
-GlobalUnlock.restype = w.BOOL
-CloseClipboard = u32.CloseClipboard
-CloseClipboard.argtypes = None
-CloseClipboard.restype = w.BOOL
-DragQueryFile = s32.DragQueryFile
-DragQueryFile.argtypes = [w.HANDLE, w.UINT, c_void_p, w.UINT]
-
-# 64-bit support for window subclassing
-try:
-	SetWindowLongPtr = u32.SetWindowLongPtrA
-	SetWindowLongPtr.argtypes = [w.HWND, c_int, c_void_p]
-	SetWindowLongPtr.restype = w.LPARAM
-except AttributeError:
-	SetWindowLongPtr = u32.SetWindowLongA
-	SetWindowLongPtr.argtypes = [w.HWND, c_int, c_void_p]
-	SetWindowLongPtr.restype = w.LONG
-
-CallWindowProc = u32.CallWindowProcA
-CallWindowProc.argtypes = [w.LPARAM, w.HWND, w.UINT, w.WPARAM, w.LPARAM]
-CallWindowProc.restype = w.LPARAM
 
 # Alternative style (displayed with most PCs): MB, KB, GB, YB, ZB, ...
 alternative = [
@@ -170,23 +131,30 @@ def calcSize(bytes, system=alternative):
 
 
 def paste(obj):
-	sleep(0.5)
-	j = 0
-	while j < 10:
-		try:
-			copyToClip(obj.text)
-			obj.flg = 0
-			message(obj.spoken.rstrip("\r\n"))
-			break
-		except Exception:
-			j += 1
-			sleep(0.05)
-	windll.user32.PostMessageW(obj.editor.GetHandle(), PASTED, 0, 0)
+	try:
+		sleep(0.5)
+		j = 0
+		while j < 10:
+			try:
+				copyToClip(obj.text)
+				obj.flg = 0
+				message(obj.spoken.rstrip("\r\n"))
+				break
+			except Exception:
+				j += 1
+				sleep(0.05)
+	finally:
+		monitor = getattr(obj, "monitor", None)
+		if monitor is not None:
+			monitor.resume(delay=DEFAULT_RESUME_DELAY)
 
 
 def getBitmapInfo():
+	"""Return a short description of the bitmap data currently on the clipboard."""
 	clipboard = wx.Clipboard.Get()
-	clipboard.Open()
+	if not openWxClipboard(clipboard):
+		# Translators: Message shown when bitmap details cannot be read from the clipboard.
+		return _("No bitmap data in clipboard")
 	try:
 		if clipboard.IsSupported(wx.DataFormat(wx.DF_BITMAP)):
 			data_object = wx.BitmapDataObject()
@@ -195,130 +163,42 @@ def getBitmapInfo():
 			width = bitmap.GetWidth()
 			height = bitmap.GetHeight()
 			depth = bitmap.GetDepth()
-			return f"分辨率： {width} x {height}，位深度： {depth}"
+			# Translators: Bitmap details shown when an image is on the clipboard.
+			return _("分辨率： {width} x {height}，位深度： {depth}").format(
+				width=width,
+				height=height,
+				depth=depth,
+			)
 		else:
-			return "No bitmap data in clipboard"
+			# Translators: Message shown when the clipboard does not contain bitmap data.
+			return _("No bitmap data in clipboard")
 	finally:
 		clipboard.Close()
 
 
-class ClipboardMonitor:
-	def __init__(self, handle=None):
-		self.handle = handle
-		self.__pre_handle = 0
-		self.work = True
-		self.__mhf = None
-		self.data = None
+def openWxClipboard(clipboard):
+	"""Open a wx clipboard object, retrying briefly while another process owns it."""
+	for _attempt in range(CLIPBOARD_OPEN_ATTEMPTS):
+		if clipboard.Open():
+			return True
+		sleep(CLIPBOARD_OPEN_RETRY_INTERVAL)
+	log.debugWarning("Attempt to open wx clipboard failed.")
+	return False
 
-	def customization(self):
-		pass
 
-	def getData(self):
-		return self.data
-
-	def workReset(self):
-		sleep(0.1)
-		self.work = True
-
-	def MsgHandleFunc(self, hwnd, msg, wParam, lParam):
-		if msg == PASTED:
-			self.work = True
-		elif msg == CF_UPDATE and self.work:
-			self.work = False
-			Thread(target=ClipboardMonitor.workReset, args=(self,)).start()
-			Thread(target=ClipboardMonitor.get_clipboard_data, args=(self,)).start()
-			cues.Copy()
-		return CallWindowProc(self.__pre_handle, hwnd, msg, wParam, lParam)
-
-	def StartMonitor(self):
-		self.__mhf = WINFUNCTYPE(w.LPARAM, w.HWND, w.UINT, w.WPARAM, w.LPARAM)(self.MsgHandleFunc)
-		u32.AddClipboardFormatListener(self.handle)
-		self.__pre_handle = SetWindowLongPtr(self.handle, -4, self.__mhf)
-
-	def Stop(self):
-		u32.RemoveClipboardFormatListener(self.handle)
-		self.__pre_handle = SetWindowLongPtr(self.handle, -4, 0)
-		self.__mhf = None
-
-	def get_clipboard_data(self):
-		self.open_clipboard()
-		formats = []
-		n = 0
-		while True:
-			n = windll.user32.EnumClipboardFormats(n)
-			if n == 0:
-				break
-			formats.append(n)
-		CloseClipboard()
-		if 13 in formats:
-			try:
-				self.data = self.get_clip_text()
-			except Exception:
-				self.data = None
-		elif 15 in formats:
-			try:
-				self.data = self.get_clip_file_list()
-			except Exception:
-				self.data = None
-		elif 2 in formats:
-			self.data = b""
+def calcFiles(files: list[str]) -> str:
+	"""Return a short file count and size summary."""
+	size = f = d = 0
+	for i in files:
+		if isfile(i):
+			f += 1
+			size += getsize(i)
 		else:
-			self.data = None
-		self.customization()
-
-	def open_clipboard(self, i=10):
-		if not OpenClipboard(None):
-			CloseClipboard()
-			while i > 0:
-				sleep(0.1)
-				if OpenClipboard(None):
-					break
-				i -= 1
-			else:
-				log.debugWarning("Attempt to open clipboard failed.")
-
-	def get_clip_text(self):
-		text = ""
-		self.open_clipboard()
-		h_clip_mem = GetClipboardData(CF_UNICODETEXT)
-		text = wstring_at(GlobalLock(h_clip_mem))
-		GlobalUnlock(h_clip_mem)
-		CloseClipboard()
-		return text
-
-	def get_clip_file_list(self):
-		files = []
-		self.open_clipboard()
-		h_hdrop = GetClipboardData(CF_HDROP)
-		if not h_hdrop:
-			return
-		FS_ENCODING = sys.getfilesystemencoding()
-		file_count = DragQueryFile(h_hdrop, -1, None, 0)
-		for index in range(file_count):
-			buf = c_buffer(260)
-			DragQueryFile(h_hdrop, index, buf, sizeof(buf))
-			try:
-				files.append(buf.value.decode("gbk"))
-			except Exception:
-				try:
-					files.append(buf.value.decode(FS_ENCODING))
-				except Exception:
-					files = None
-		CloseClipboard()
-		return files
-
-	def calc(self, files):
-		size = f = d = 0
-		for i in files:
-			if isfile(i):
-				f += 1
-				size += getsize(i)
-			else:
-				d += 1
-				for root, dd, ff in walk(i):
-					for n in ff:
-						size += getsize(join(root, n))
-		t = "{}个文件夹,".format(d) if d else ""
-		t1 = f"{f}个文件" if f else ""
-		size = calcSize(size, alternative)
-		return t + t1 + "共{}".format(size)
+			d += 1
+			for root, dd, ff in walk(i):
+				for n in ff:
+					size += getsize(join(root, n))
+	t = "{}个文件夹,".format(d) if d else ""
+	t1 = f"{f}个文件" if f else ""
+	size = calcSize(size, alternative)
+	return t + t1 + "共{}".format(size)
