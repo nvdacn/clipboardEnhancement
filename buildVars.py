@@ -1,7 +1,12 @@
 # Build customizations
 # Change this file instead of sconstruct or manifest files, whenever possible.
 
-from site_scons.site_tools.NVDATool.typings import AddonInfo, BrailleTables, SymbolDictionaries, SpeechDictionaries
+from site_scons.site_tools.NVDATool.typings import (
+	AddonInfo,
+	BrailleTables,
+	SymbolDictionaries,
+	SpeechDictionaries,
+)
 
 # Since some strings in `addon_info` are translatable,
 # we need to include them in the .po files.
@@ -28,7 +33,7 @@ It aims to improve the user experience by providing more control and flexibility
 	addon_version="2.9.6",
 	# Brief changelog for this version
 	# Translators: what's new content for the add-on version to be shown in the add-on store
-addon_changelog=_("""### 2.9.6
+	addon_changelog=_("""### 2.9.6
 
 Clipboard monitor stability fixes."""),
 	# Author(s)
@@ -61,7 +66,7 @@ Clipboard monitor stability fixes."""),
 # pythonSources = ["addon/globalPlugins/*.py"]
 # For more information on SCons Glob expressions please take a look at:
 # https://scons.org/doc/production/HTML/scons-user/apd.html
-pythonSources: list[str] = []
+pythonSources: list[str] = ["addon/installTasks.py"]
 
 # Files that contain strings for translation. Usually your python sources
 i18nSources: list[str] = pythonSources + ["buildVars.py"]
@@ -70,7 +75,12 @@ i18nSources: list[str] = pythonSources + ["buildVars.py"]
 # Paths are relative to the addon directory, not to the root directory of your addon sources.
 # You can either list every file (using ""/") as a path separator,
 # or use glob expressions.
-excludedFiles: list[str] = []
+excludedFiles: list[str] = [
+	"**/__pycache__/**",
+	"**/*.py[co]",
+	# The 2.x branch has no vendored runtime dependencies.
+	"globalPlugins/clipboardEnhancement/_vendor/**/*",
+]
 
 # Base language for the NVDA add-on
 # If your add-on is written in a language other than english, modify this variable.
