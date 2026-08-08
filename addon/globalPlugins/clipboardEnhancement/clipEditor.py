@@ -11,6 +11,7 @@ class MyFrame(wx.Frame):
 	def __init__(self, *args, **kw):
 		wx.Frame.__init__(self, size=(600, 460), *args, **kw)
 		self.is_exit = False
+		self.original_content = ""
 		pnl = wx.Panel(self)
 		self.edit = wx.TextCtrl(
 			pnl,
@@ -60,11 +61,12 @@ class MyFrame(wx.Frame):
 	def on_key_down(self, evt):
 		code = evt.GetKeyCode()
 		if code == wx.WXK_ESCAPE:
-			self.Show(False)
 			position = self.edit.GetInsertionPoint()
 			XY = self.edit.PositionToXY(position)
 			if XY[0]:
 				self.set_clipboard_position(XY[1], XY[2])
+			self.on_exit(evt)
+			return
 		evt.Skip()
 
 	def set_clipboard_position(self, x, y):
@@ -76,6 +78,7 @@ class MyFrame(wx.Frame):
 			self.clear_clipboard()
 		else:
 			api.copyToClip(text)
+		self.original_content = text
 
 	def on_replacement(self, evt):
 		dlg = reReplace.ReDialog(self)
@@ -261,6 +264,29 @@ class MyFrame(wx.Frame):
 		self.Show(False)
 
 	def on_exit(self, event):
+		current_content = self.edit.GetValue()
+		# 检查内容是否有变化
+		if current_content != self.original_content:
+			# 弹出对话框询问用户是否保存
+			dlg = wx.MessageDialog(
+				self,
+				_("文档已更改，是否保存？"),
+				_("保存确认"),
+				wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION,
+			)
+			result = dlg.ShowModal()
+			dlg.Destroy()
+
+			if result == wx.ID_YES:
+				# 用户选择保存，更新剪贴板
+				self.on_update(wx.CommandEvent())
+				self.original_content = current_content
+			elif result == wx.ID_CANCEL:
+				# 用户选择取消，不关闭编辑器
+				if hasattr(event, "Veto"):
+					event.Veto()
+				return
+
 		self.Show(False)
 
 	def on_saveImageFromClip(self, evt):
@@ -296,4 +322,6 @@ class MyFrame(wx.Frame):
 	def on_show(self, event):
 		if event.IsShown():
 			self.RefreshUIForImage(bitmap.isImageInClipboard())
+			# 记录原始内容
+			self.original_content = self.edit.GetValue()
 		event.Skip()
