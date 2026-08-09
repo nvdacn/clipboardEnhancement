@@ -1,6 +1,6 @@
-### 2.9.6
+### 2.9.7
 
-Clipboard monitor stability fixes.
+Downgrade from nvdaClipboard.
 
 ### 2.9.5
 
